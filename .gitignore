@@ -1,0 +1,20 @@
+# Build output
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# Good Display NDA waveform values -- never commit
+components/panel_uc8179c/nda/
+
+# Game ROMs and save dumps
+*.gb
+*.gbc
+*.sav
+
+# Editors / OS
+.clangd/
+compile_commands.json
+Thumbs.db
+.DS_Store

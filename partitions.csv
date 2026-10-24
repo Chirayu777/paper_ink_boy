@@ -1,0 +1,10 @@
+# Paper Ink Boy -- ESP32-C5 N16R8 (16 MB flash).
+# rom:   the Game Boy ROM, written with tools/flash_rom.ps1 (8 MB covers every DMG cartridge).
+# saves: battery-backed cartridge RAM, a 4 KB header then up to 128 KB of RAM.
+#
+# Name,    Type, SubType,  Offset,    Size
+nvs,       data, nvs,      0x9000,    0x6000
+phy_init,  data, phy,      0xF000,    0x1000
+factory,   app,  factory,  0x10000,   0x300000
+saves,     data, 0x41,     0x310000,  0x40000
+rom,       data, 0x40,     0x400000,  0x800000

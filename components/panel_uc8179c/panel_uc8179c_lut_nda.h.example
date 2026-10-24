@@ -1,0 +1,36 @@
+/**
+ * @file panel_uc8179c_lut_nda.h.example
+ * @brief Template for the UC8179C quick-mode waveform values, which are under NDA with Good Display
+ * and so are not in git.
+ *
+ * Copy this file to components/panel_uc8179c/nda/panel_uc8179c_lut_nda.h (that folder is ignored by
+ * git) and fill in each value from Good Display's GDEY075T7 register-LUT partial-mode driver
+ * (EPD_Init_Part_LUT() and lut1() in its Display_EPD_W21.c). The build needs the file only when
+ * PANEL_QUICK_ENABLED is set; without it, it fails with a message that points here.
+ *
+ * Never put values here that program the controller's OTP: quick mode writes the volatile LUT
+ * registers only.
+ */
+#pragma once
+
+/* Booster soft start (0x06), its 4 data bytes. */
+#define PANEL_NDA_BOOSTER       0x00U, 0x00U, 0x00U, 0x00U
+/* Power setting (0x01), its 4 data bytes: gate and source drive voltages -- partial mode's, and
+ * full refresh's (EPD_Init_LUT()) for PANEL_QUICK_STRONG_DRIVE. */
+#define PANEL_NDA_POWER_SETTING      0x00U, 0x00U, 0x00U, 0x00U
+#define PANEL_NDA_POWER_SETTING_FULL 0x00U, 0x00U, 0x00U, 0x00U
+/* Panel setting (0x00) that takes the waveform from the LUT registers. */
+#define PANEL_NDA_PANEL_SETTING 0x00U
+/* VCOM DC setting (0x82). */
+#define PANEL_NDA_VCOM_DC       0x00U
+/* PLL / frame rate (0x30). */
+#define PANEL_NDA_PLL           0x00U
+/* LUT option (0x52) that lets the LUT registers be used on a panel with an OTP waveform. */
+#define PANEL_NDA_LUT_OPTION    0x00U
+
+/* Level byte of group 0 of each LUT register: 2 bits per phase. Hold (WW, KK) must not drive. */
+#define PANEL_NDA_LEVEL_VCOM    0x00U /* 0x20 */
+#define PANEL_NDA_LEVEL_WW      0x00U /* 0x21 */
+#define PANEL_NDA_LEVEL_KW      0x00U /* 0x22: old black, new white */
+#define PANEL_NDA_LEVEL_WK      0x00U /* 0x23: old white, new black */
+#define PANEL_NDA_LEVEL_KK      0x00U /* 0x24 */
