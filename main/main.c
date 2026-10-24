@@ -9,7 +9,7 @@
  *    is drawn where it changed and joins the run, its changed pixels getting a drive budget of a
  *    few scans while pixels from earlier frames finish theirs; pixels that do not change are never
  *    driven. (Without quick mode it falls back to one stock partial refresh per frame.) Every
- *    WHOLE_REFRESH_EVERY frames, and when the side button is pressed, it lets the run end and
+ *    WHOLE_REFRESH_EVERY panel updates, and when the side button is pressed, it lets the run end and
  *    runs a whole-screen fast refresh to clear the ghosting.
  *  - touch: reads the GT911 and turns fingers on the on-screen controls into buttons; also reads
  *    the side button. A separate task because the touch ISR and the display both signal through
@@ -48,8 +48,9 @@
 #define NTF_FRAME   (1UL << 1) /* the emulator published a frame */
 #define NTF_CLEAN   (1UL << 2) /* whole-screen refresh asked for (side button) */
 
-/* Frames shown between two whole-screen fast refreshes, which clear the ghosting. */
-#define WHOLE_REFRESH_EVERY   (150U)
+/* Panel updates (quick scans, or partial refreshes without quick mode) between two whole-screen
+ * fast refreshes, which clear the ghosting. ~200 scans is about 25 s of play. */
+#define WHOLE_REFRESH_EVERY   (200U)
 /* Quick-mode drive budgets: how many scans a pixel that changes is driven for, 1 to 15 (0 = the
  * panel driver's own, 1). Several short scans per change, with new frames joining the run in
  * between, is what lets a pixel finish moving without holding up the next frame. */
@@ -228,10 +229,12 @@ static void display_task(void *p_arg)
     bool carry_on = false;
     bool need_whole = true;
     bool quick = true;
-    uint32_t since_whole = 0U;
+    uint32_t since_whole = 0U; /* refreshes begun since the last whole-screen one (partial mode) */
+    uint32_t scans_at_whole = display_quick_scan_count();
 
-    uint32_t stat_refreshes = 0U;
+    uint32_t stat_refreshes = 0U; /* game frames drawn and sent */
     uint64_t stat_area = 0U;
+    uint32_t stat_scans = display_quick_scan_count();
     int64_t stat_start_us = esp_timer_get_time();
 
     for (;;) {
@@ -256,18 +259,27 @@ static void display_task(void *p_arg)
         const int64_t now_us = esp_timer_get_time();
         if ((now_us - stat_start_us) >= STATS_PERIOD_US) {
             const uint32_t secs_x10 = (uint32_t)((now_us - stat_start_us) / 100000);
+            const uint32_t scans_now = display_quick_scan_count();
+            /* What the eye sees change: panel scans in quick mode, refreshes otherwise */
+            const uint32_t updates = quick ? (scans_now - stat_scans) : stat_refreshes;
             ESP_LOGI(TAG,
-                     "display %" PRIu32 ".%" PRIu32 " fps (%s), avg area %" PRIu32 " px",
+                     "display %" PRIu32 ".%" PRIu32 " updates/s (%s), game frames sent %" PRIu32
+                     ".%" PRIu32 "/s, avg area %" PRIu32 " px",
+                     (updates * 10U) / secs_x10,
+                     ((updates * 100U) / secs_x10) % 10U,
+                     (updates == 0U) ? "idle" : (quick ? "quick" : "partial"),
                      (stat_refreshes * 10U) / secs_x10,
                      ((stat_refreshes * 100U) / secs_x10) % 10U,
-                     (stat_refreshes == 0U) ? "idle" : (quick ? "quick" : "partial"),
                      (stat_refreshes > 0U) ? (uint32_t)(stat_area / stat_refreshes) : 0U);
             stat_start_us = now_us;
             stat_refreshes = 0U;
             stat_area = 0U;
+            stat_scans = scans_now;
         }
 
-        const bool want_whole = (need_whole == true) || (since_whole >= WHOLE_REFRESH_EVERY);
+        const uint32_t updates_since_whole =
+            quick ? (display_quick_scan_count() - scans_at_whole) : since_whole;
+        const bool want_whole = (need_whole == true) || (updates_since_whole >= WHOLE_REFRESH_EVERY);
 
         /* Streaming: while a quick run is in flight, each new frame joins it. Its changed pixels
          * get their drive budget on the run's next scan, while pixels from earlier frames finish
@@ -314,6 +326,7 @@ static void display_task(void *p_arg)
                 in_flight = true;
                 need_whole = false;
                 since_whole = 0U;
+                scans_at_whole = display_quick_scan_count();
                 carry_on = false;
             } else {
                 ESP_LOGE(TAG, "fast refresh: %s", esp_err_to_name(ret));

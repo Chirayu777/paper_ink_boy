@@ -143,6 +143,15 @@ esp_err_t display_begin_quick_budget(const epd_rect_t *p_rect,
 esp_err_t display_quick_extend(const epd_rect_t *p_rect);
 
 /**
+ * @brief How many quick scans have run since display_init() -- each one is a visible update of
+ * the glass, however many images joined it.
+ *
+ * @return the count; wraps at 2^32.
+ * @note Owner task only.
+ */
+uint32_t display_quick_scan_count(void);
+
+/**
  * @brief Run the in-flight refresh's next step. Call each time the registered bit is set.
  *
  * @return ESP_ERR_NOT_FINISHED while still in flight; ESP_OK when this call completed it (or when

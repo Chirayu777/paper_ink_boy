@@ -109,6 +109,8 @@ static display_request_t s_request;
 /* Area added to the quick refresh in flight by display_quick_extend(), for its next scan. */
 static epd_rect_t s_quick_extend;
 static bool s_quick_extend_on = false;
+/* Quick scans run since display_init(), for display_quick_scan_count(). */
+static uint32_t s_quick_scans = 0U;
 #if DISPLAY_TIMING_MONITOR_ENABLED
 static int64_t s_op_start_us = 0;
 static int64_t s_step_start_us = 0;
@@ -328,6 +330,16 @@ esp_err_t display_begin_quick_budget(const epd_rect_t *p_rect,
     display_fb_quick_touch(&s_request.region);
     s_quick_extend_on = false;
     return display_start(DISPLAY_OP_QUICK);
+}
+
+/**
+ * @brief How many quick scans have run.
+ *
+ * @return uint32_t
+ */
+uint32_t display_quick_scan_count(void)
+{
+    return s_quick_scans;
 }
 
 /**
@@ -627,6 +639,7 @@ static esp_err_t display_quick_next(void)
              (esp_timer_get_time() - s_step_start_us) / 1000);
 #endif
     s_mode = DISPLAY_OP_QUICK;
+    s_quick_scans++;
     epd_rect_t pending;
     const bool any_pending = display_fb_quick_pending(&pending);
     if ((any_pending == false) && (s_quick_extend_on == false)) {
