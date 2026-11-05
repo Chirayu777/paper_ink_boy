@@ -54,8 +54,12 @@
 /* Quick-mode drive budgets: how many scans a pixel that changes is driven for, 1 to 15 (0 = the
  * panel driver's own, 1). Several short scans per change, with new frames joining the run in
  * between, is what lets a pixel finish moving without holding up the next frame. */
-#define QUICK_BUDGET_BLACK    (3U)
-#define QUICK_BUDGET_WHITE    (3U)
+#ifndef QUICK_BUDGET_BLACK
+#define QUICK_BUDGET_BLACK    (6U)
+#endif
+#ifndef QUICK_BUDGET_WHITE
+#define QUICK_BUDGET_WHITE    (6U)
+#endif
 
 #define DISPLAY_TASK_STACK    (6144U)
 #define DISPLAY_TASK_PRIORITY (6U)

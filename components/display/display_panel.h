@@ -13,8 +13,9 @@
  * Everything electrical is the driver's side of this interface: the panel brings up its own bus
  * settings in init(), through the display port, and the core never sees a clock, a pin or a level.
  *
- * To add a panel, write a driver that defines one display_panel_t and display_select_panel(), and
- * name it in display's CMakeLists.txt in place of the old one.
+ * To add a panel, write a driver that defines one display_panel_t and display_select_panel(), add it
+ * to the panel choice in display's Kconfig, and list it in display's CMakeLists.txt; the driver
+ * compiles its source only when its panel is the one selected.
  *
  * @version 0.1
  * @date 2026-10-12

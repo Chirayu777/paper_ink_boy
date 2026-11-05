@@ -38,6 +38,18 @@
 #define CELL_DARK    (0x15EU) /* the complement of light */
 #define CELL_BLACK   (0x1FFU)
 
+/* RENDER_GREY: draw light grey as the panel's real grey (a pixel stopped partway between black and
+ * white, display_set_grey()) and dark grey as a grey/black checker, instead of dithering black on
+ * white. Needs the panel driver built with quick mode. Set with idf.py -DPIB_GREY=1. */
+#ifndef RENDER_GREY
+#define RENDER_GREY  (0)
+#endif
+
+/* What a dither-pattern pixel shows */
+#define PIX_WHITE    (0U)
+#define PIX_GREY     (1U)
+#define PIX_BLACK    (2U)
+
 /* Side of the repeating dither pattern: the 3x3 cell at scale 3, a 2x2 ordered dither otherwise. */
 #if GAME_SCALE == 3
 #define CELL_N       (3U)
@@ -61,13 +73,17 @@ static uint8_t s_col_gy[IMG_W];
 static uint8_t s_col_j[IMG_W];
 
 static uint8_t s_img[IMG_H * IMG_STRIDE];
+#if RENDER_GREY
+/* Which pixels of s_img are grey, same layout, 1 = grey (they are black in s_img) */
+static uint8_t s_grey_img[IMG_H * IMG_STRIDE];
+#endif
 static uint8_t s_shown[GB_EMU_WIDTH * GB_EMU_HEIGHT];
 
 /* Private function declarations -----------------------------------------------------------------*/
 
 static bool find_dirty(const uint8_t *p_frame, epd_rect_t *p_cells);
 static void render_row(const uint8_t *p_frame, uint16_t r);
-static bool cell_black(uint32_t shade, uint32_t i, uint32_t j);
+static uint32_t cell_pixel(uint32_t shade, uint32_t i, uint32_t j);
 
 /* Public function definitions -------------------------------------------------------------------*/
 
@@ -132,6 +148,10 @@ bool renderer_draw(const uint8_t *p_frame, bool whole, epd_rect_t *p_dirty)
         .h = dirty_land.h,
     };
     display_draw_image(&rows, &s_img[(size_t)r0 * IMG_STRIDE]);
+#if RENDER_GREY
+    /* After draw_image, which clears the grey marks of the pixels it writes */
+    display_set_grey(&rows, &s_grey_img[(size_t)r0 * IMG_STRIDE]);
+#endif
 
     memcpy(s_shown, p_frame, sizeof(s_shown));
     *p_dirty = dirty_land;
@@ -191,22 +211,37 @@ static bool find_dirty(const uint8_t *p_frame, epd_rect_t *p_cells)
 }
 
 /**
- * @brief Whether pixel (i, j) of the dither pattern is black for a shade.
+ * @brief What pixel (i, j) of the dither pattern shows for a shade.
  *
  * @param[in] shade 0 = white to 3 = black.
  * @param[in] i x inside the pattern, along screen x.
  * @param[in] j y inside the pattern, along screen y.
- * @return true for black.
+ * @return PIX_WHITE, PIX_GREY or PIX_BLACK.
  */
-static bool cell_black(uint32_t shade, uint32_t i, uint32_t j)
+static uint32_t cell_pixel(uint32_t shade, uint32_t i, uint32_t j)
 {
-#if GAME_SCALE == 3
+#if RENDER_GREY
+    /* White, real grey, a grey/black checker, black */
+    (void)s_cells;
     (void)s_bayer;
     (void)s_bayer_dots;
-    return (s_cells[shade] & (1U << ((j * CELL_N) + i))) != 0U;
+    switch (shade) {
+    case 0U:
+        return PIX_WHITE;
+    case 1U:
+        return PIX_GREY;
+    case 2U:
+        return (((i + j) & 1U) != 0U) ? PIX_BLACK : PIX_GREY;
+    default:
+        return PIX_BLACK;
+    }
+#elif GAME_SCALE == 3
+    (void)s_bayer;
+    (void)s_bayer_dots;
+    return ((s_cells[shade] & (1U << ((j * CELL_N) + i))) != 0U) ? PIX_BLACK : PIX_WHITE;
 #else
     (void)s_cells;
-    return s_bayer[j][i] < s_bayer_dots[shade];
+    return (s_bayer[j][i] < s_bayer_dots[shade]) ? PIX_BLACK : PIX_WHITE;
 #endif
 }
 
@@ -220,27 +255,49 @@ static void render_row(const uint8_t *p_frame, uint16_t r)
 {
     const uint8_t gx = s_row_gx[r];
     const uint8_t i = s_row_i[r];
-    /* For this row's x inside the cell: bit j set = pixel (i, j) of a cell of that shade is black. */
+    /* For this row's x inside the cell: bit j set = pixel (i, j) of a cell of that shade is black
+     * (grey pixels are black in the framebuffer too, with their grey mark set). */
     uint8_t black_j[4];
+    uint8_t grey_j[4];
     for (uint32_t shade = 0U; shade < 4U; shade++) {
         black_j[shade] = 0U;
+        grey_j[shade] = 0U;
         for (uint32_t j = 0U; j < CELL_N; j++) {
-            if (cell_black(shade, i, j) == true) {
+            const uint32_t pix = cell_pixel(shade, i, j);
+            if (pix != PIX_WHITE) {
                 black_j[shade] |= (uint8_t)(1U << j);
+            }
+            if (pix == PIX_GREY) {
+                grey_j[shade] |= (uint8_t)(1U << j);
             }
         }
     }
 
     uint8_t *p_out = &s_img[(size_t)r * IMG_STRIDE];
+#if RENDER_GREY
+    uint8_t *p_grey = &s_grey_img[(size_t)r * IMG_STRIDE];
+#else
+    (void)grey_j;
+#endif
     for (uint16_t b = 0U; b < IMG_STRIDE; b++) {
         uint8_t byte = 0U;
+        uint8_t grey = 0U;
         for (uint16_t bit = 0U; bit < 8U; bit++) {
             const uint16_t c = (uint16_t)((b * 8U) + bit);
             const uint8_t shade = p_frame[((size_t)s_col_gy[c] * GB_EMU_WIDTH) + gx];
-            if ((black_j[shade] & (1U << s_col_j[c])) != 0U) {
+            const uint8_t j_bit = (uint8_t)(1U << s_col_j[c]);
+            if ((black_j[shade] & j_bit) != 0U) {
                 byte |= (uint8_t)(0x80U >> bit);
+            }
+            if ((grey_j[shade] & j_bit) != 0U) {
+                grey |= (uint8_t)(0x80U >> bit);
             }
         }
         p_out[b] = byte;
+#if RENDER_GREY
+        p_grey[b] = grey;
+#else
+        (void)grey;
+#endif
     }
 }

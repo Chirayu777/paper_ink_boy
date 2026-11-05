@@ -1,6 +1,8 @@
 /**
  * @file hal_touch.h
- * @brief Public API for the GT911 capacitive touch controller driver -- raw coordinates only.
+ * @brief Public API for the capacitive touch controller driver -- raw coordinates only. Implemented
+ * by hal_touch.c for the GT911 (7.5" module) or hal_touch_ft6336.c for the FT6336U (4.26" module),
+ * as menuconfig's panel selects.
  *
  * No chess-square mapping, no hit-region classification -- that belongs to tsk_input
  * (atlas-architecture-presentation.html section iv). This is the HAL layer under it: init the

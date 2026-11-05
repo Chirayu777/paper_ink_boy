@@ -1,0 +1,24 @@
+menu "Paper Ink Boy display"
+
+    choice PIB_PANEL
+        prompt "E-paper panel"
+        default PIB_PANEL_GDEY075T7
+        help
+            The panel fitted to the board. Selects which panel driver is built in.
+
+        config PIB_PANEL_GDEY075T7
+            bool "7.5in GDEY075T7-T01 (UC8179C)"
+        config PIB_PANEL_GDEQ0426T82
+            bool "4.26in GDEQ0426T82-T01C (SSD1677)"
+    endchoice
+
+    config PIB_TOUCH_FT6336_ROTATE_180
+        bool "4.26in touch: rotate touch points 180 degrees"
+        depends on PIB_PANEL_GDEQ0426T82
+        default n
+        help
+            The default is measured on the Atlas board. Set this only if touching one
+            corner of the 4.26in screen acts on the opposite corner (for example, the
+            A button presses the d-pad).
+
+endmenu

@@ -2,8 +2,12 @@
 
 A Game Boy emulator on e-paper, for the **Atlas board**:
 - ESP32-C5 N16R8
-- GoodDisplay GDEY075T7-T01: 7.5", 800×480, UC8179C controller
-- GT911 touch controller
+- GoodDisplay GDEY075T7-T01: 7.5", 800×480, UC8179C controller, or GDEQ0426T82-T01C: 4.26", 800×480, SSD1677 controller
+- GT911 touch controller (7.5" module) or FT6336U (4.26" module)
+
+### Choosing the panel
+
+Select the panel in `idf.py menuconfig` under **Paper Ink Boy display → E-paper panel**, then rebuild. The 7.5" is the default. The touch driver follows the panel: GT911 for the 7.5", FT6336U for the 4.26" (`components/hal_touch/hal_touch_ft6336.c`). If 4.26" touches land on the opposite side of the screen, enable **4.26in touch: rotate touch points 180 degrees** in the same menu. The 4.26" driver is in `components/panel_ssd1677/` and supports full, fast, partial and quick refreshes. Its quick waveform needs no NDA file; tune it with `-DPIB_SSD1677_QUICK_FRAMES=N` (frames per scan, default 3) and `-DPIB_SSD1677_QUICK_FR=N` (frame rate setting, default 2), then `idf.py reconfigure build`.
 
 The device is held upright like a Game Boy. The screen sits at the top at 3× scale (480×432), and the touch controls are below it.
 
